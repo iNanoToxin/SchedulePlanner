@@ -1,0 +1,2 @@
+# Disable line length enforcement (E501)
+line-length = 120
