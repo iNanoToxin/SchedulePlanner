@@ -27,7 +27,6 @@ class TUSession:
     def __init__(self, *, username="", password=""):
         try:
             # Initialize browser and redirect to login page
-            print("Initializing browser and redirecting to temple login page.")
             driver = webdriver.Chrome()
             driver.maximize_window()
             driver.get(TUPage.Login)
@@ -35,15 +34,12 @@ class TUSession:
 
             # Fill out username and password if specified
             if username and password and isinstance(username, str) and isinstance(password, str):
-                print("Attempting to login automatically.")
                 username_field = driver_wait.until(ec.presence_of_element_located((By.ID, "username")))
                 password_field = driver_wait.until(ec.presence_of_element_located((By.ID, "password")))
                 username_field.send_keys(username)
                 password_field.send_keys(password)
                 login_button = driver.find_element(By.CLASS_NAME, "btn-login")
                 login_button.click()
-            else:
-                print("Username and password not defined, waiting for manual login.")
 
             # Detect if user has finished logging in (auto accepts trust browser)
             def finish_login(_driver):
@@ -53,16 +49,13 @@ class TUSession:
 
             # Redirect to self service banner page once logged in (5 minutes max to login)
             WebDriverWait(driver, 5 * 60).until(finish_login)
-            print("Login complete, redirecting to registration page.")
             driver.get(TUPage.Registration)
 
             # Click planning link once it is available
-            print("Redirecting to planning page.")
             link = driver_wait.until(ec.element_to_be_clickable((By.ID, "planningLink")))
             link.click()
 
             # Grab required cookies from current session (required for future requests)
-            print("Grabbing required session information.")
             session = requests.Session()
             session.cookies.update(
                 {
@@ -73,7 +66,6 @@ class TUSession:
             # print(json.dumps({cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}, indent=4))
 
             # The browser is no longer required after the session is created
-            print("Session created, exiting browser.")
             driver.quit()
 
             self._session = session
@@ -81,7 +73,6 @@ class TUSession:
             print("Webdriver session failed:", error.msg)
         except Exception as error:
             print("Failed to create session:", error)
-        return None
 
     def fetch(self, _url: str, _query_params) -> tuple[bool, any]:
         if self._session is None:
