@@ -1,6 +1,6 @@
 from functools import cache
-from util.types import Json, TypedClass
-from typing import List, Optional
+from pydantic import BaseModel, Json
+from typing import List, Dict, Optional
 import requests
 import base64
 
@@ -13,7 +13,7 @@ def b64encode(_str: str):
     return base64.b64encode(_str.encode()).decode()
 
 
-class Department(TypedClass):
+class Department(BaseModel):
     id: str
     name: str
 
@@ -21,7 +21,7 @@ class Department(TypedClass):
         return f"Department({self.name})"
 
 
-class SchoolSummary(TypedClass):
+class SchoolSummary(BaseModel):
     campusCondition: float
     campusLocation: float
     careerOpportunities: float
@@ -35,10 +35,10 @@ class SchoolSummary(TypedClass):
     socialActivities: float
 
     def __str__(self):
-        return f"SchoolSummary({self.campus_condition}, {self.campus_location})"
+        return f"SchoolSummary({self.campusCondition}, {self.campusLocation})"
 
 
-class School(TypedClass):
+class School(BaseModel):
     avgRatingRounded: float
     city: str
     country: str
@@ -51,10 +51,10 @@ class School(TypedClass):
     summary: SchoolSummary
 
     def __str__(self):
-        return f"School({self.name}, {self.avg_rating_rounded}, {self.city}, {self.state})"
+        return f"School({self.name}, {self.avgRatingRounded}, {self.city}, {self.state})"
 
 
-class Teacher(TypedClass):
+class Teacher(BaseModel):
     avgDifficultyRounded: float
     avgRatingRounded: float
     department: str
@@ -69,7 +69,10 @@ class Teacher(TypedClass):
     wouldTakeAgainPercentRounded: float
 
     def __str__(self):
-        return f"Teacher({self.first_name} {self.last_name}, {self.avg_rating_rounded}, {self.num_ratings})"
+        return f"Teacher({self.firstName} {self.lastName}, {self.avgRatingRounded}, {self.numRatings})"
+
+    def get_name(self):
+        return f"{self.firstName} {self.lastName}"
 
 
 class RateMyProfessor:
@@ -83,7 +86,7 @@ class RateMyProfessor:
         with open("ratemyprofessor/query.gql", "r") as file:
             self._query = file.read()
 
-    def query(self, _json: dict[str, any]) -> Optional[Json]:
+    def query(self, _json: Dict[str, any]) -> Optional[Json]:
         response = self._session.post(self.Url, json=_json)
         if response.status_code == 200:
             result = response.json()
@@ -107,7 +110,7 @@ class RateMyProfessor:
             }
         )
         if result:
-            return [School(school["node"]) for school in result["data"]["search"]["schools"]["edges"]]
+            return [School(**school["node"]) for school in result["data"]["search"]["schools"]["edges"]]
         return None
 
     @cache
@@ -128,7 +131,7 @@ class RateMyProfessor:
             }
         )
         if result:
-            return [Teacher(teacher["node"]) for teacher in result["data"]["search"]["teachers"]["edges"]]
+            return [Teacher(**teacher["node"]) for teacher in result["data"]["search"]["teachers"]["edges"]]
         return None
 
     @cache
@@ -143,7 +146,7 @@ class RateMyProfessor:
             }
         )
         if result:
-            return School(result["data"]["node"])
+            return School(**result["data"]["node"])
         return None
 
     @cache
@@ -158,7 +161,7 @@ class RateMyProfessor:
             }
         )
         if result:
-            return Teacher(result["data"]["node"])
+            return Teacher(**result["data"]["node"])
         return None
 
     @cache
