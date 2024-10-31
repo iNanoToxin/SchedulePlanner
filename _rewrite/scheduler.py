@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List, Set, Union, Tuple
+from typing import List, Set, Union, Tuple, Iterator
 from util.print import pprint
 
 WeekTimeType = Union["WeekTime", Tuple["Day", int, int]]
@@ -34,6 +34,14 @@ class WeekTime:
         """Return total minutes since the beginning of the week."""
         return self.day.value * 24 * 60 + self.hour * 60 + self.minute
 
+    def formatted_time(self) -> str:
+        label = "PM" if 12 <= self.hour < 24 else "AM"
+        hour = self.hour % 12 or 12
+        return f"{hour:02}:{self.minute:02} {label}"
+
+    def __eq__(self, _other: "WeekTime") -> bool:
+        return self.total_minutes() == _other.total_minutes()
+
     def __le__(self, _other: "WeekTime") -> bool:
         return self.total_minutes() <= _other.total_minutes()
 
@@ -43,8 +51,11 @@ class WeekTime:
     def __hash__(self) -> int:
         return self.total_minutes()
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return f"WeekTime({self.day}, {self.hour}, {self.minute})"
+
+    def __str__(self) -> str:
+        return f"WeekTime({self.day.name} {self.formatted_time()})"
 
 
 class WeekTimeRange:
@@ -55,6 +66,9 @@ class WeekTimeRange:
         self.start = WeekTime(*_start) if isinstance(_start, tuple) else _start
         self.end = WeekTime(*_end) if isinstance(_end, tuple) else _end
         assert self.start <= self.end, "Start time must be before end time"
+
+    def duration_minutes(self) -> int:
+        return self.end.total_minutes() - self.start.total_minutes()
 
     def overlaps(self, _other: "WeekTimeRange") -> bool:
         """Check if this time range overlaps with another."""
@@ -80,15 +94,19 @@ class WeekTimeRange:
     def __hash__(self) -> int:
         return hash((self.start, self.end))
 
+    def __repr__(self) -> str:
+        return f"WeekTimeRange({repr(self.start)}, {repr(self.end)})"
+
     def __str__(self) -> str:
-        return f"WeekTimeRange({self.start}, {self.end})"
+        return f"WeekTimeRange({self.start.day.name} {self.start.formatted_time()} - {self.end.day.name} {self.end.formatted_time()})"
 
 
 class WeekTimeFilter:
-    ranges: Set[WeekTimeRange]
+    _ranges: List[WeekTimeRange]
+    _iterator: Iterator[WeekTimeRange]
 
     def __init__(self):
-        self.ranges = set()
+        self._ranges = []
 
     def add_day(self, _day: Day):
         self.add_range(WeekTime(_day, 0, 0), WeekTime(_day, 24, 0))
@@ -98,46 +116,46 @@ class WeekTimeFilter:
 
     def add_range(self, _start: WeekTimeType, _end: WeekTimeType):
         """Add a new time range."""
-        self.ranges.add(WeekTimeRange(_start, _end))
-        self.merge()
+        time_range = WeekTimeRange(_start, _end)
+
+        if time_range not in self._ranges:
+            self._ranges.append(time_range)
+            self.merge()
 
     def sub_range(self, _start: WeekTimeType, _end: WeekTimeType):
         """Subtract a time range from the existing ranges, splitting as necessary."""
-        range_to_subtract = WeekTimeRange(_start, _end)
+        subtract_range = WeekTimeRange(_start, _end)
 
-        new_time_ranges = set()
-        for time_range in self.ranges:
-            if time_range.overlaps(range_to_subtract):
+        for time_range in self._ranges.copy():
+            if time_range.overlaps(subtract_range):
                 # Split existing range into two parts if needed
-                new_time_ranges.update(time_range.split(range_to_subtract))
-            else:
-                # If no overlap, keep the existing range
-                new_time_ranges.add(time_range)
-        self.ranges = new_time_ranges
+                self._ranges.remove(time_range)
+                self._ranges.extend(time_range.split(subtract_range))
+                self.merge()
 
     def merge(self):
-        if not self.ranges:
+        if not self._ranges:
             return
 
-        sorted_ranges = sorted(self.ranges, key=lambda r: r.start)
-        merged_ranges = set()
+        sorted_ranges = sorted(self._ranges, key=lambda r: r.start)
+        merged_ranges = []
 
         previous = sorted_ranges[0]
         for time_range in sorted_ranges[1:]:
             if time_range.start <= previous.end:
                 previous = WeekTimeRange(previous.start, max(previous.end, time_range.end))
             else:
-                merged_ranges.add(previous)
+                merged_ranges.append(previous)
                 previous = time_range
 
-        merged_ranges.add(previous)
+        merged_ranges.append(previous)
 
-        self.ranges = merged_ranges
+        self._ranges = merged_ranges
 
     def invert(self):
         """Invert the filter, returning the time ranges that are not included."""
-        sorted_ranges = sorted(self.ranges, key=lambda r: r.start)
-        invert_ranges = set()
+        sorted_ranges = sorted(self._ranges, key=lambda r: r.start)
+        invert_ranges = []
 
         # Define the full week range (00:00 Sunday to 24:00 Saturday)
         full_week_start = WeekTime(Day.Sun, 0, 0)
@@ -148,16 +166,24 @@ class WeekTimeFilter:
         for time_range in sorted_ranges:
             # If there's a gap between current start and the existing range
             if previous < time_range.start:
-                invert_ranges.add(WeekTimeRange(previous, time_range.start))
+                invert_ranges.append(WeekTimeRange(previous, time_range.start))
 
             # Move the current start to the end of the existing range
             previous = time_range.end
 
         # If there's any time left after the last existing range
         if previous < full_week_end:
-            invert_ranges.add(WeekTimeRange(previous, full_week_end))
+            invert_ranges.append(WeekTimeRange(previous, full_week_end))
 
-        self.ranges = invert_ranges
+        self._ranges = invert_ranges
+
+    def overlaps(self, _other: "WeekTimeFilter") -> bool:
+        """Check if this filter has any overlapping ranges with another filter."""
+        for range_self in self._ranges:
+            for range_other in _other._ranges:
+                if range_self.overlaps(range_other):
+                    return True
+        return False
 
     def __iadd__(self, _other: Union[Day, WeekTimeRangeType]) -> "WeekTimeFilter":
         if isinstance(_other, Day):
@@ -167,7 +193,7 @@ class WeekTimeFilter:
         elif isinstance(_other, tuple):
             self.add_range(*_other)
         else:
-            raise Exception("")
+            raise Exception(f"Expected Union[Day, WeekTimeRangeType], got {type(_other).__name__}")
         return self
 
     def __isub__(self, _other: Union[Day, WeekTimeRangeType]) -> "WeekTimeFilter":
@@ -177,30 +203,45 @@ class WeekTimeFilter:
             self.sub_range(_other.start, _other.end)
         elif isinstance(_other, tuple):
             self.sub_range(*_other)
+        else:
+            raise Exception(f"Expected Union[Day, WeekTimeRangeType], got {type(_other).__name__}")
         return self
 
     def __neg__(self) -> "WeekTimeFilter":
         new_filter = WeekTimeFilter()
-        new_filter.ranges = self.ranges.copy()
+        new_filter._ranges = self._ranges.copy()
         new_filter.invert()
         return new_filter
 
+    def __iter__(self) -> "WeekTimeFilter":
+        self._iterator = iter(self._ranges)
+        return self
+
+    def __next__(self) -> "WeekTimeFilter":
+        # if self._index > len(self._ranges):
+        #     raise StopIteration
+        # item = self._ranges[self._index]
+        # self._index += 1
+        # return item
+        return next(self._iterator)
+
     def __repr__(self) -> str:
-        return f"WeekTimeFilter([\n{",\n".join(" " * 4 + str(r) for r in self.ranges)}\n])"
+        return f"WeekTimeFilter([\n{",\n".join(" " * 4 + repr(r) for r in self)}\n])"
 
     def __str__(self) -> str:
-        return f"WeekTimeFilter({self.ranges})"
+        return f"WeekTimeFilter([\n{",\n".join(" " * 4 + str(r) for r in self)}\n])"
 
 
-# Example usage
+
 filter = WeekTimeFilter()
-# filter += Day.Mon
-# filter += Day.Wed
-filter += ((Day.Mon, 3, 30), (Day.Thu, 3, 45))
+filter += Day.Mon
+filter += Day.Wed
+filter += Day.Fri
 
-filter += 2
+# filter = -filter
 
-print(repr(-filter))
+# for time_range in filter:
+#     print(time_range)
 
+# print(filter)
 
-print(repr(filter))
