@@ -12,6 +12,7 @@ class TUPlanner:
         self._section_filter = {}
         self._teacher_filter = {}
         self._filter = lambda _: True
+        self._allow_waitlist = False
 
     @cache
     def get_course_sections(self, _course_name: str):
@@ -23,7 +24,7 @@ class TUPlanner:
             return (
                 _section["campusDescription"] == "Main"
                 and _section["status"]["sectionOpen"]
-                and (_section["seatsAvailable"] > 0 or _section["waitAvailable"] > 0)
+                and (_section["seatsAvailable"] > 0 or self._allow_waitlist and _section["waitAvailable"] > 0)
                 and (_section["instructionalMethod"] == "CLAS" or _section["instructionalMethod"] == "OLL")
             )
 
@@ -54,6 +55,9 @@ class TUPlanner:
 
     def select_term(self, _term: int):
         self._term = _term
+
+    def waitlist(self, _allow: bool):
+        self._allow_waitlist = _allow
 
     def select_courses(self, _courses: list[str]):
         self._courses = _courses
@@ -88,6 +92,7 @@ class TUPlanner:
             success, result = self.get_course_sections(course_name)
 
             if success:
+                assert len(result) > 0, f"{course_name} has no available sections"
                 # Append list of sections for each course so that we can get the cartesian product
                 all_sections.append((section for section in result if is_valid_section(section)))
 

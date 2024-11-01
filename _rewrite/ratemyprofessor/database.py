@@ -51,14 +51,14 @@ class School(BaseModel):
     summary: SchoolSummary
 
     def __str__(self):
-        return f"School({self.name}, {self.avgRatingRounded}, {self.city}, {self.state})"
+        return f"School({self.name}, {self.avgRatingRounded:.2f}, {self.city}, {self.state})"
 
 
 class Teacher(BaseModel):
     avgDifficultyRounded: float
     avgRatingRounded: float
     department: str
-    departmentId: str
+    departmentId: Optional[str]
     firstName: str
     id: str
     isSaved: bool
@@ -69,7 +69,7 @@ class Teacher(BaseModel):
     wouldTakeAgainPercentRounded: float
 
     def __str__(self):
-        return f"Teacher({self.firstName} {self.lastName}, {self.avgRatingRounded}, {self.numRatings})"
+        return f"Teacher({self.firstName} {self.lastName}, {self.avgRatingRounded:.2f}, {self.numRatings})"
 
     def get_name(self):
         return f"{self.firstName} {self.lastName}"
