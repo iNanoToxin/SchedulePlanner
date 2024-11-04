@@ -3,10 +3,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.common.exceptions import WebDriverException
-import requests
+from school.session import SchoolPage, SchoolSession
 
 
-class TUPage:
+class TUPage(SchoolPage):
     # Urls that get information about courses and terms
     Terms = "https://prd-xereg.temple.edu/StudentRegistrationSsb/ssb/plan/getTerms"
     CourseInfo = "https://prd-xereg.temple.edu/StudentRegistrationSsb/ssb/searchResults/searchResults"
@@ -21,10 +21,8 @@ class TUPage:
     Registration = "https://prd-xereg.temple.edu/StudentRegistrationSsb/ssb/registration"
 
 
-class TUSession:
-    _session: requests.Session
-
-    def __init__(self, *, username="", password=""):
+class TUSession(SchoolSession):
+    def login(self, *, username: str = "", password: str = ""):
         try:
             # Initialize browser and redirect to login page
             driver = webdriver.Chrome()
@@ -56,67 +54,18 @@ class TUSession:
             link.click()
 
             # Grab required cookies from current session (required for future requests)
-            session = requests.Session()
-            session.cookies.update(
+            self._session.cookies.update(
                 {
                     "JSESSIONID": driver.get_cookie("JSESSIONID")["value"],
                     "BIGipServerprd_xereg_8180_pool": driver.get_cookie("BIGipServerprd_xereg_8180_pool")["value"],
                 }
             )
+            self._authenticated = True
             # print(json.dumps({cookie["name"]: cookie["value"] for cookie in driver.get_cookies()}, indent=4))
 
             # The browser is no longer required after the session is created
             driver.quit()
-
-            self._session = session
         except WebDriverException as error:
             print("Webdriver session failed:", error.msg)
         except Exception as error:
             print("Failed to create session:", error)
-
-    def fetch(self, _url: str, _query_params) -> tuple[bool, any]:
-        if self._session is None:
-            return False, "You are not logged in."
-
-        try:
-            response = self._session.get(_url, params=_query_params)
-
-            if response.status_code != 200:
-                return False, f"Failed to retrieve the page. Status code: {response.status_code}"
-            return True, response.json()
-        except ValueError:
-            return False, "You are not logged in."
-        except Exception as error:
-            return False, error.with_traceback()
-
-    def fetch_all(self, _url: str, _query_params, *, filter=None, output=False) -> tuple[bool, any]:
-        _query_params["pageOffset"] = 0
-        _query_params["pageMaxSize"] = 2000
-        data = []
-
-        while True:
-            success, result = self.fetch(_url, _query_params)
-            if not success:
-                return success, result
-            if not result["success"] or not result["data"]:
-                return False, "Fetch failed. Data not found."
-
-            if filter:
-                # Only append filtered values
-                data.extend(item for item in result["data"] if filter(item))
-            else:
-                # Appened all results
-                data.extend(result["data"])
-
-            # Update page offset by length of the data
-            _query_params["pageOffset"] += len(result["data"])
-
-            if output:
-                print(f"Fetched data ({_query_params["pageOffset"]} out of {result["totalCount"]}).")
-
-            if _query_params["pageOffset"] >= result["totalCount"]:
-                break
-        return True, data
-
-    def send(self, _url: str, _data: dict[str, any]) -> requests.Response:
-        return self._session.post(_url, _data)

@@ -1,4 +1,6 @@
 from functools import cache
+from pydantic import BaseModel, Json
+from typing import List, Dict, Optional
 import requests
 import base64
 
@@ -11,72 +13,66 @@ def b64encode(_str: str):
     return base64.b64encode(_str.encode()).decode()
 
 
-class School:
-    def __init__(self, _data: dict[str, any]):
-        self.id = _data.get("id")
-        self.legacy_id = _data.get("legacyId")
-        self.num_ratings = _data.get("numRatings")
-        self.name = _data.get("name")
-        self.avg_rating_rounded = _data.get("avgRatingRounded")
-        self.city = _data.get("city")
-        self.state = _data.get("state")
-
-        if "departments" in _data:
-            self.departments = [Department(department) for department in _data.get("departments")]
-
-        if "summary" in _data:
-            self.summary = SchoolSummary(_data.get("summary"))
-
-    def __str__(self):
-        return f"School({self.id}, {self.name}, {self.avg_rating_rounded}, {self.city}, {self.state})"
-
-
-class Teacher:
-    def __init__(self, _data: dict[str, any]):
-        self.id = _data.get("id")
-        self.legacy_id = _data.get("legacyId")
-        self.first_name = _data.get("firstName")
-        self.last_name = _data.get("lastName")
-        self.avg_rating_rounded = _data.get("avgRatingRounded")
-        self.avg_difficulty_rounded = _data.get("avgDifficultyRounded")
-        self.num_ratings = _data.get("numRatings")
-        self.would_take_again_percent_rounded = _data.get("wouldTakeAgainPercentRounded")
-        self.department = _data.get("department")
-        self.department_id = _data.get("departmentId")
-        self.is_saved = _data.get("isSaved")
-
-        if "school" in _data:
-            self.school = School(_data.get("school"))
-
-    def __str__(self):
-        return f"Teacher({self.first_name} {self.last_name}, {self.avg_rating_rounded}, {self.num_ratings})"
-
-
-class Department:
-    def __init__(self, _data: dict[str, any]):
-        self.id = _data.get("id")
-        self.name = _data.get("name")
+class Department(BaseModel):
+    id: str
+    name: str
 
     def __str__(self):
         return f"Department({self.name})"
 
 
-class SchoolSummary:
-    def __init__(self, _data: dict[str, any]):
-        self.campus_condition = _data.get("campusCondition")
-        self.campus_location = _data.get("campusLocation")
-        self.career_opportunities = _data.get("careerOpportunities")
-        self.club_and_event_activities = _data.get("clubAndEventActivities")
-        self.food_quality = _data.get("foodQuality")
-        self.internet_speed = _data.get("internetSpeed")
-        self.library_condition = _data.get("libraryCondition")
-        self.school_reputation = _data.get("schoolReputation")
-        self.school_safety = _data.get("schoolSafety")
-        self.school_satisfaction = _data.get("schoolSatisfaction")
-        self.social_activities = _data.get("socialActivities")
+class SchoolSummary(BaseModel):
+    campusCondition: float
+    campusLocation: float
+    careerOpportunities: float
+    clubAndEventActivities: float
+    foodQuality: float
+    internetSpeed: float
+    libraryCondition: float
+    schoolReputation: float
+    schoolSafety: float
+    schoolSatisfaction: float
+    socialActivities: float
 
     def __str__(self):
-        return f"SchoolSummary({self.campus_condition}, {self.campus_location})"
+        return f"SchoolSummary({self.campusCondition}, {self.campusLocation})"
+
+
+class School(BaseModel):
+    avgRatingRounded: float
+    city: str
+    country: str
+    departments: List[Department]
+    id: str
+    legacyId: int
+    name: str
+    numRatings: int
+    state: str
+    summary: SchoolSummary
+
+    def __str__(self):
+        return f"School({self.name}, {self.avgRatingRounded:.2f}, {self.city}, {self.state})"
+
+
+class Teacher(BaseModel):
+    avgDifficultyRounded: float
+    avgRatingRounded: float
+    department: str
+    departmentId: Optional[str]
+    firstName: str
+    id: str
+    isSaved: bool
+    lastName: str
+    legacyId: int
+    numRatings: int
+    school: School
+    wouldTakeAgainPercentRounded: float
+
+    def __str__(self):
+        return f"Teacher({self.firstName} {self.lastName}, {self.avgRatingRounded:.2f}, {self.numRatings})"
+
+    def get_name(self):
+        return f"{self.firstName} {self.lastName}"
 
 
 class RateMyProfessor:
@@ -90,7 +86,7 @@ class RateMyProfessor:
         with open("ratemyprofessor/query.gql", "r") as file:
             self._query = file.read()
 
-    def query(self, _json: dict[str, any]) -> dict[str, any] | None:
+    def query(self, _json: Dict[str, any]) -> Optional[Json]:
         response = self._session.post(self.Url, json=_json)
         if response.status_code == 200:
             result = response.json()
@@ -99,7 +95,7 @@ class RateMyProfessor:
         return None
 
     @cache
-    def get_schools(self, _search: str, *, offset=-1, max=10):
+    def get_schools(self, _search: str, *, offset=-1, max=10) -> List[School]:
         result = self.query(
             {
                 "query": self._query,
@@ -114,11 +110,11 @@ class RateMyProfessor:
             }
         )
         if result:
-            return [School(school["node"]) for school in result["data"]["search"]["schools"]["edges"]]
+            return [School(**school["node"]) for school in result["data"]["search"]["schools"]["edges"]]
         return None
 
     @cache
-    def get_teachers(self, _search: str, _school_id: str, *, offset=-1, max=10):
+    def get_teachers(self, _search: str, _school_id: str, *, offset=-1, max=10) -> List[Teacher]:
         result = self.query(
             {
                 "query": self._query,
@@ -135,11 +131,11 @@ class RateMyProfessor:
             }
         )
         if result:
-            return [Teacher(teacher["node"]) for teacher in result["data"]["search"]["teachers"]["edges"]]
+            return [Teacher(**teacher["node"]) for teacher in result["data"]["search"]["teachers"]["edges"]]
         return None
 
     @cache
-    def get_school(self, _id: str):
+    def get_school(self, _id: str) -> Optional[School]:
         result = self.query(
             {
                 "query": self._query,
@@ -150,11 +146,11 @@ class RateMyProfessor:
             }
         )
         if result:
-            return School(result["data"]["node"])
+            return School(**result["data"]["node"])
         return None
 
     @cache
-    def get_teacher(self, _id: str):
+    def get_teacher(self, _id: str) -> Optional[Teacher]:
         result = self.query(
             {
                 "query": self._query,
@@ -165,10 +161,10 @@ class RateMyProfessor:
             }
         )
         if result:
-            return Teacher(result["data"]["node"])
+            return Teacher(**result["data"]["node"])
         return None
 
     @cache
-    def get_schema(self):
+    def get_schema(self) -> Optional[Json]:
         with open("ratemyprofessor/schema.gql", "r") as file:
             return self.query({"query": file.read()})

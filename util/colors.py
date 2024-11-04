@@ -14,6 +14,6 @@ def get_dark_mode_colors() -> List[str]:
             dark_mode_colors.append(color)
 
     dark_mode_colors.sort()
-    random.seed(2024)
+    random.seed(2025)
     random.shuffle(dark_mode_colors)
     return dark_mode_colors

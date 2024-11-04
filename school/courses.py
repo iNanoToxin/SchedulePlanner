@@ -1,5 +1,5 @@
 from ratemyprofessor.database import RateMyProfessor, Teacher
-from temple.week_schedule import WeekSchedule, WeekTime, Day
+from school.week_schedule import WeekSchedule, WeekTime, Day
 from typing import List, Optional, Any
 from pydantic import BaseModel, field_validator
 from datetime import time
