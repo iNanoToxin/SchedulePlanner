@@ -1,5 +1,6 @@
 from pydantic import Json
-from typing import Tuple, List, Optional, Callable, Union
+from typing import List
+from school.courses import CourseSection, Term
 import requests
 
 
@@ -27,58 +28,45 @@ class SchoolSession:
         self._authenticated = False
 
     def login(self, *, username: str = "", password: str = ""):
-        raise NotImplementedError("Subclasses must implement this method")
+        raise NotImplementedError
 
-    def fetch(self, _url: str, _query_params: Json) -> Tuple[bool, Union[Json, str]]:
-        if not self._authenticated:
-            return False, "You are not logged in."
+    def get_course_sections(self, _course: str, **kwargs) -> List[CourseSection]:
+        raise NotImplementedError
 
-        try:
-            response = self._session.get(_url, params=_query_params)
+    def get_terms(self, _max: int) -> List[Term]:
+        raise NotImplementedError
 
-            if response.status_code != 200:
-                return False, f"Failed to retrieve the page. Status code: {response.status_code}"
-            return True, response.json()
-        except ValueError:
-            return False, "You are not logged in."
-        except Exception as error:
-            return False, error.with_traceback()
+    def fetch(self, _url: str, _query_params: Json) -> Json:
+        assert self._authenticated, "user is not logged in"
 
-    def fetch_all(
-        self,
-        _url: str,
-        _query_params: Json,
-        *,
-        filter: Optional[Callable[[Json], bool]] = None,
-        output: bool = False,
-    ) -> Tuple[bool, Union[List[Json], str]]:
+        response = self._session.get(_url, params=_query_params)
+
+        assert response.status_code == 200, f"failed to retrieve the page: code={response.status_code}"
+
+        return response.json()
+
+    def fetch_all(self, _url: str, _query_params: Json) -> List[Json]:
         _query_params["pageOffset"] = 0
         _query_params["pageMaxSize"] = 2000
-        data: List[Json] = []
+
+        data_list: List[Json] = []
 
         while True:
-            success, result = self.fetch(_url, _query_params)
-            if not success:
-                return success, result
-            if not result["success"] or not result["data"]:
-                return False, "Fetch failed. Data not found."
+            result = self.fetch(_url, _query_params)
 
-            if filter:
-                # Only append filtered values
-                data.extend(item for item in result["data"] if filter(item))
-            else:
-                # Appened all results
-                data.extend(result["data"])
+            assert result["data"], "no data found"
+
+            # Appened all results
+            data_list.extend(result["data"])
 
             # Update page offset by length of the data
             _query_params["pageOffset"] += len(result["data"])
 
-            if output:
-                print(f"Fetched data ({_query_params["pageOffset"]} out of {result["totalCount"]}).")
-
             if _query_params["pageOffset"] >= result["totalCount"]:
                 break
-        return True, data
+        return data_list
 
     def send(self, _url: str, _data: Json) -> requests.Response:
+        assert self._authenticated, "user is not logged in"
+
         return self._session.post(_url, _data)

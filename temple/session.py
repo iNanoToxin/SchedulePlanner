@@ -1,9 +1,12 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.common.exceptions import WebDriverException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium import webdriver
 from school.session import SchoolPage, SchoolSession
+from school.courses import CourseSection, Term
+from functools import cache
+from typing import List
 
 
 class TUPage(SchoolPage):
@@ -69,3 +72,20 @@ class TUSession(SchoolSession):
             print("Webdriver session failed:", error.msg)
         except Exception as error:
             print("Failed to create session:", error)
+
+    @cache
+    def get_course_sections(self, _course: str, *, term: int) -> List[CourseSection]:
+        # Refresh courses and sections (otherwise the server will cache the results)
+        self.send(TUPage.PlanMode, {"term": term})
+        self.send(TUPage.ResetDataForm, {"resetCourses": True, "resetSections": True})
+
+        # Fetch all section info for selected courses
+        return [
+            CourseSection(**course)
+            for course in self.fetch_all(TUPage.CourseInfo, {"txt_subjectcoursecombo": _course, "txt_term": term})
+        ]
+
+    @cache
+    def get_terms(self, _max: int) -> List[Term]:
+        # Fetch info for available terms
+        return [Term(**term) for term in self.fetch(TUPage.Terms, {"offset": 0, "max": _max})]

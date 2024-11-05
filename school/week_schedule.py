@@ -113,7 +113,7 @@ class WeekRange:
         return results
 
     def __eq__(self, _other: "WeekRange") -> bool:
-        return hash(self) == hash(_other)
+        return self.start == _other.start and self.end == _other.end
 
     def __hash__(self) -> int:
         return hash((self.start, self.end))

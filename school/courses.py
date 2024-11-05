@@ -9,6 +9,11 @@ School_ID = "U2Nob29sLTk5OQ=="
 RateMyProfessor_API = RateMyProfessor()
 
 
+class Term(BaseModel):
+    code: int
+    description: str
+
+
 class MeetingTime(BaseModel):
     beginTime: Optional[time]
     building: Optional[str]
