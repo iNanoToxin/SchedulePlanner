@@ -227,12 +227,13 @@ class SchedulePlot:
                 course.sequenceNumber,
                 ("\n").join([teacher.get_name() for teacher in course.get_teachers()]),
                 ("\n").join([f"{teacher.avgRatingRounded:.2f}" for teacher in course.get_teachers()]),
+                ("\n").join([f"{teacher.numRatings}" for teacher in course.get_teachers()]),
                 "In-person" if course.instructionalMethod == "CLAS" else "Online",
                 str(course.creditHourLow),
             )
             for course in sorted(self._time_slot.values(), key=lambda c: c.subjectCourse)
         ]
-        render_table(["Class", "Section", "Teachers", "Ratings", "Type", "Credits"], rows)
+        render_table(["Class", "Section", "Teachers", "Ratings", "Number of Ratings", "Type", "Credits"], rows)
 
         print(f"OVERALL_RATING: {ScheduleCompare.teacher_rating(self):.3f} avg")
 

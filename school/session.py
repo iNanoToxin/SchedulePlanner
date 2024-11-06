@@ -27,13 +27,13 @@ class SchoolSession:
         self._session = requests.Session()
         self._authenticated = False
 
-    def login(self, *, username: str = "", password: str = ""):
+    def login(self):
         raise NotImplementedError
 
-    def get_course_sections(self, _course: str, **kwargs) -> List[CourseSection]:
+    def get_course_sections(self) -> List[CourseSection]:
         raise NotImplementedError
 
-    def get_terms(self, _max: int) -> List[Term]:
+    def get_terms(self) -> List[Term]:
         raise NotImplementedError
 
     def fetch(self, _url: str, _query_params: Json) -> Json:

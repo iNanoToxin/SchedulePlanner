@@ -1,12 +1,13 @@
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 from school.session import SchoolPage, SchoolSession
 from school.courses import CourseSection, Term
 from functools import cache
-from typing import List
+from typing import List, Optional
 
 
 class TUPage(SchoolPage):
@@ -25,11 +26,17 @@ class TUPage(SchoolPage):
 
 
 class TUSession(SchoolSession):
-    def login(self, *, username: str = "", password: str = ""):
+    def login(self, *, username: Optional[str] = None, password: Optional[str] = None, disable_gui: bool = False):
         try:
+            options = Options()
+            options.add_argument("--start-maximized")  # Start maximized
+
+            if disable_gui:
+                options.add_argument("--headless")  # Runs without GUI
+
             # Initialize browser and redirect to login page
-            driver = webdriver.Chrome()
-            driver.maximize_window()
+            driver = webdriver.Chrome(options=options)
+            # driver.maximize_window()
             driver.get(TUPage.Login)
             driver_wait = WebDriverWait(driver, 10)
 
