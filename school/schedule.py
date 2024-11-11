@@ -1,9 +1,9 @@
 from matplotlib.font_manager import FontProperties
 from school.week_schedule import WeekSchedule, Day
-from IPython.display import Markdown, display
-from util.colors import get_dark_mode_colors
-from typing import Dict, List, Tuple, Union
 from school.courses import CourseSection
+from util.colors import get_dark_mode_colors
+from util.display import render_table
+from typing import Dict, List, Tuple, Union
 from datetime import time
 import matplotlib.pyplot as plt
 import math
@@ -11,9 +11,11 @@ import math
 
 class SchedulePlot:
     _time_slot: Dict[WeekSchedule, CourseSection]
+    _school_id: str
 
-    def __init__(self, _courses: List[CourseSection]):
+    def __init__(self, _courses: List[CourseSection], *, school_id: str):
         self._time_slot = {course.get_schedule(): course for course in _courses}
+        self._school_id = school_id
 
     def get_range_x(self) -> Tuple[float, float]:
         """Returns the minimum and maximum times of events in the schedule."""
@@ -43,7 +45,7 @@ class SchedulePlot:
                 time_max = max(time_max, time_range.end.to_hours())
         return time_min, time_max
 
-    def show(
+    def plot(
         self,
         *,
         title: str = "Semester Schedule",
@@ -202,19 +204,6 @@ class SchedulePlot:
 
             return f"{h} hr{"s" if h != 1 else ""} {m} min{"s" if m != 1 else ""}"
 
-        def render_table(_headers: List[str], _rows: List[List[str]]):
-            # Create the header row
-            md = "| " + " | ".join(_headers) + " |\n"
-            md += "| " + " | ".join(["---"] * len(_headers)) + " |\n"  # Separator row
-
-            # Add each row of data
-            for row in _rows:
-                # Replace newline characters with <br> for Markdown rendering
-                sanitized_row = [cell.replace("\n", "<br>") for cell in row]
-                md += "| " + " | ".join(sanitized_row) + " |\n"
-
-            display(Markdown(md))
-
         print(
             f"WEEK_RANGE({hm_fmt(ScheduleCompare.week_range(self) / 60)}), "
             f"WEEK_TOTAL({hm_fmt(ScheduleCompare.week_total(self) / 60)}), "
@@ -223,17 +212,35 @@ class SchedulePlot:
 
         rows = [
             (
+                course.courseTitle,
                 course.subjectCourse,
                 course.sequenceNumber,
-                ("\n").join([teacher.get_name() for teacher in course.get_teachers()]),
-                ("\n").join([f"{teacher.avgRatingRounded:.2f}" for teacher in course.get_teachers()]),
-                ("\n").join([f"{teacher.numRatings}" for teacher in course.get_teachers()]),
+                ("\n").join([teacher.get_name() for teacher in course.get_teachers(self._school_id)]),
+                ("\n").join([f"{teacher.avgRatingRounded:.2f}" for teacher in course.get_teachers(self._school_id)]),
+                ("\n").join([f"{teacher.numRatings}" for teacher in course.get_teachers(self._school_id)]),
                 "In-person" if course.instructionalMethod == "CLAS" else "Online",
                 str(course.creditHourLow),
+                f"{course.seatsAvailable} / {course.maximumEnrollment}",
+                f"{course.waitAvailable} / {course.waitCapacity}",
             )
             for course in sorted(self._time_slot.values(), key=lambda c: c.subjectCourse)
         ]
-        render_table(["Class", "Section", "Teachers", "Ratings", "Number of Ratings", "Type", "Credits"], rows)
+
+        render_table(
+            [
+                "Title",
+                "Class",
+                "Section",
+                "Teachers",
+                "Ratings",
+                "Number of Ratings",
+                "Type",
+                "Credits",
+                "Seats Available",
+                "Waitlist Seats Available",
+            ],
+            rows,
+        )
 
         print(f"OVERALL_RATING: {ScheduleCompare.teacher_rating(self):.3f} avg")
 
@@ -287,7 +294,7 @@ class ScheduleCompare:
             if course.subjectCourse not in found_class:
                 found_class.add(course.subjectCourse)
 
-                teachers = course.get_teachers()
+                teachers = course.get_teachers(_s._school_id)
                 if len(teachers) == 0:
                     # Penalty for not having a rating
                     sum_rating += penalty_rating * penalty_num_ratings
@@ -296,4 +303,7 @@ class ScheduleCompare:
                     for teacher in teachers:
                         sum_rating += teacher.avgRatingRounded * teacher.numRatings
                         sum_num_ratings += teacher.numRatings
+
+        if sum_num_ratings == 0:
+            return 0
         return sum_rating / sum_num_ratings

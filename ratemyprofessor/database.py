@@ -111,7 +111,7 @@ class RateMyProfessor:
         )
         if result:
             return [School(**school["node"]) for school in result["data"]["search"]["schools"]["edges"]]
-        return None
+        return []
 
     @cache
     def get_teachers(self, _search: str, _school_id: str, *, offset=-1, max=10) -> List[Teacher]:
@@ -131,8 +131,12 @@ class RateMyProfessor:
             }
         )
         if result:
-            return [Teacher(**teacher["node"]) for teacher in result["data"]["search"]["teachers"]["edges"]]
-        return None
+            return [
+                teacher_obj
+                for teacher in result["data"]["search"]["teachers"]["edges"]
+                if (teacher_obj := Teacher(**teacher["node"])).school.id == _school_id
+            ]
+        return []
 
     @cache
     def get_school(self, _id: str) -> Optional[School]:

@@ -5,7 +5,6 @@ from pydantic import BaseModel, field_validator
 from datetime import time
 
 
-School_ID = "U2Nob29sLTk5OQ=="
 RateMyProfessor_API = RateMyProfessor()
 
 
@@ -57,7 +56,7 @@ class Faculty(BaseModel):
     category: Optional[str]
     courseReferenceNumber: str
     displayName: str
-    emailAddress: str
+    emailAddress: Optional[str]
     primaryIndicator: bool
     term: str
 
@@ -164,10 +163,10 @@ class CourseSection(BaseModel):
     def overlaps(self, _other: "CourseSection") -> bool:
         return self.get_schedule().overlaps(_other.get_schedule())
 
-    def get_teachers(self) -> List[Teacher]:
+    def get_teachers(self, _school_id: str) -> List[Teacher]:
         return [
             teacher
             for faculty in self.faculty
-            for teacher in RateMyProfessor_API.get_teachers(faculty.get_name().lower(), School_ID)
+            for teacher in RateMyProfessor_API.get_teachers(faculty.get_name().lower(), _school_id)
             if teacher.get_name().lower() == faculty.get_name().lower()
         ]

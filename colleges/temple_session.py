@@ -4,13 +4,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium import webdriver
-from school.session import SchoolPage, SchoolSession
+from school.session import SchoolSession
 from school.courses import CourseSection, Term
 from functools import cache
 from typing import List, Optional
 
 
-class TUPage(SchoolPage):
+class TUPage:
     # Urls that get information about courses and terms
     Terms = "https://prd-xereg.temple.edu/StudentRegistrationSsb/ssb/plan/getTerms"
     CourseInfo = "https://prd-xereg.temple.edu/StudentRegistrationSsb/ssb/searchResults/searchResults"
@@ -26,7 +26,17 @@ class TUPage(SchoolPage):
 
 
 class TUSession(SchoolSession):
-    def login(self, *, username: Optional[str] = None, password: Optional[str] = None, disable_gui: bool = False):
+    @property
+    def id(self) -> str:
+        return "U2Nob29sLTk5OQ=="
+
+    def login(
+        self,
+        *,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        disable_gui: bool = False,
+    ):
         try:
             options = Options()
             options.add_argument("--start-maximized")  # Start maximized
@@ -93,6 +103,6 @@ class TUSession(SchoolSession):
         ]
 
     @cache
-    def get_terms(self, _max: int) -> List[Term]:
+    def get_terms(self, *, max: int) -> List[Term]:
         # Fetch info for available terms
-        return [Term(**term) for term in self.fetch(TUPage.Terms, {"offset": 0, "max": _max})]
+        return [Term(**term) for term in self.fetch(TUPage.Terms, {"offset": 0, "max": max})]

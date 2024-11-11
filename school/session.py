@@ -1,25 +1,12 @@
+from school.courses import CourseSection, Term
+from util.display import render_table
+from abc import ABC, abstractmethod
 from pydantic import Json
 from typing import List
-from school.courses import CourseSection, Term
 import requests
 
 
-class SchoolPage:
-    # Urls that get information about courses and terms
-    Terms: str
-    CourseInfo: str
-
-    # Post urls that are required to getting new information
-    PlanMode: str
-    ResetDataForm: str
-
-    # Pages that you are required to visit (otherwise you cannot search for courses)
-    Login: str
-    Home: str
-    Registration: str
-
-
-class SchoolSession:
+class SchoolSession(ABC):
     _session: requests.Session
     _authenticated: bool
 
@@ -27,14 +14,26 @@ class SchoolSession:
         self._session = requests.Session()
         self._authenticated = False
 
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        pass
+
+    @abstractmethod
     def login(self):
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def get_course_sections(self) -> List[CourseSection]:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def get_terms(self) -> List[Term]:
-        raise NotImplementedError
+        pass
+
+    def print_terms(self, *, max: int):
+        terms = self.get_terms(max=max)
+        render_table(["Code", "Description"], [(term.code, term.description) for term in terms])
 
     def fetch(self, _url: str, _query_params: Json) -> Json:
         assert self._authenticated, "user is not logged in"
