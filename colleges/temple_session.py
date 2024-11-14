@@ -105,4 +105,4 @@ class TUSession(SchoolSession):
     @cache
     def get_terms(self, *, max: int) -> List[Term]:
         # Fetch info for available terms
-        return [Term(**term) for term in self.fetch(TUPage.Terms, {"offset": 0, "max": max})]
+        return [Term(**term) for term in self.fetch(TUPage.Terms, {"offset": 0, "max": max}, json=True)]

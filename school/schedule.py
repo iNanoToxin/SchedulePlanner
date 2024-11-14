@@ -219,7 +219,7 @@ class SchedulePlot:
                 ("\n").join([f"{teacher.avgRatingRounded:.2f}" for teacher in course.get_teachers(self._school_id)]),
                 ("\n").join([f"{teacher.numRatings}" for teacher in course.get_teachers(self._school_id)]),
                 "In-person" if course.instructionalMethod == "CLAS" else "Online",
-                str(course.creditHourLow),
+                str(course.creditHours or course.creditHourLow or course.creditHourHigh),
                 f"{course.seatsAvailable} / {course.maximumEnrollment}",
                 f"{course.waitAvailable} / {course.waitCapacity}",
             )

@@ -111,7 +111,7 @@ class CourseSection(BaseModel):
     campusDescription: str
     scheduleTypeDescription: str
     courseTitle: str
-    creditHours: Optional[float]
+    creditHours: Optional[int]
     maximumEnrollment: int
     enrollment: int
     seatsAvailable: int
@@ -122,8 +122,8 @@ class CourseSection(BaseModel):
     crossListCapacity: Optional[int]
     crossListCount: Optional[int]
     crossListAvailable: Optional[int]
-    creditHourHigh: Optional[float]
-    creditHourLow: int
+    creditHourHigh: Optional[int]
+    creditHourLow: Optional[int]
     creditHourIndicator: Optional[str]
     openSection: bool
     linkIdentifier: Optional[str]
@@ -159,9 +159,6 @@ class CourseSection(BaseModel):
                             ),
                         )
         return class_schedule
-
-    def overlaps(self, _other: "CourseSection") -> bool:
-        return self.get_schedule().overlaps(_other.get_schedule())
 
     def get_teachers(self, _school_id: str) -> List[Teacher]:
         return [
